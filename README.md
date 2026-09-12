@@ -56,4 +56,10 @@ Key settings to adjust for your build:
 
 <img src="/media/display.jpeg" width="300" height="300">
 
-7. **Wire the ESP32** to the servo, display, and backlight per the pin table under [Configuration](#configuration), using the color mapping from step 4.
+7. **Route cable** thru hole, and add a zip tie.
+
+<img src="/media/power_cable.jpeg" width="300" height="300">
+
+8. **Wire the ESP32** to the servo, display, and backlight per the pin table under [Configuration](#configuration), using the color mapping from step 4. Twist (+, ground) with heat shrink like in picture to the servo cables.
+
+<img src="/media/esp32.jpeg" width="300" height="300">
