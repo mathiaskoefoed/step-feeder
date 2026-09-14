@@ -16,7 +16,7 @@ An ESP32-based automatic aquarium feeder built around the auger screw and food c
 
 - **Tested** - for 1 year before publishing this feeder
 - **Servo-driven auger** - reuses the SmartFeed 2.0's screw mechanism to dispense food in precise portions
-- **Onboard display** - ST7789V screen shows the current time, Wifi status/signal, and time for the next scheduled feeding
+- **Onboard display** - ST7789V screen shows the current time, Wifi signal strength, feeder status, next scheduled feeding, amount, and feeding mode.
 - **5 independent feeding schedules** - each with its own time, amount, and mode
 - **Two feeding modes** - Normal and Extra, with separately tunable servo levels for each
 - **Pause mode** - temporarily disable all scheduled feedings without losing the schedule
@@ -71,7 +71,7 @@ wifi_password: "your-wifi-password"
 
 <img src="/media/container.jpeg" width="300" height="200">
 
-3. **Mount the food container** to the 3D-printed base using the original 4 screws. The 3D-printed auger screw must be inserted into the container **before** the container is screwed down - it can't be added afterward.
+3. **Mount the food container** to the 3D-printed base using the original 4 screws. The 3D-printed auger screw gear must be inserted into the container **before** the container is screwed down - it can't be added afterward.
 
 <img src="/media/container_screw.jpeg" width="300" height="200"><img src="/media/container_mount_1.jpeg" width="200" height="200"><img src="/media/container_mount_2.jpeg" width="200" height="200">
 
@@ -83,20 +83,20 @@ wifi_password: "your-wifi-password"
 
 <img src="/media/display.jpeg" width="300" height="300">
 
-6. **Route cable** thru hole, and add a zip tie.
+6. **Route the cable through the hole and secure it with a zip tie.** 
 
 <img src="/media/power_cable.jpeg" width="300" height="300">
 
-7. **Wire the ESP32** to the servo, display, and backlight per the pin table under [Build steps](#build-steps), using the color mapping from step 4. Twist (+, ground) with heat shrink like in picture to the servo cables.
+7. **Wire the ESP32** to the servo, display, and backlight according to the pin table above, using the jumper-wire color mapping from step 5. Twist the positive and ground wires together and secure them with heat shrink, as shown in the picture.
 
 <img src="/media/esp32.jpeg" width="300" height="300">
 
 ## Calibration
-The servo levels may need to be tuned after assembly but default should work:
+The servo levels may need to be tuned after assembly but the default values should work.
 1. In Home Assistant, use the **Servo Control** number entity to manually jog the servo to find the current arm level where the auger turns exactly one dispensing cycle.
-2. Set **Normal Level** to the value that moves the arm one tooth
-3. Set **Extra Level** to the value that moves the arm two tooth
-4. Set **Stop Level** to the value that moves the arm to rest position
+2. **Normal Level** - set this to the servo level that advances the auger by one tooth.
+3. **Extra Level** - set this to the servo level that advances the auger by two teeth.
+4. **Stop Level** - set this to the servo level that returns the mechanism to its rest position.
 
 ## Home Assistant Integration
 ### Actions:
@@ -114,7 +114,7 @@ data:
   mode: "NORMAL"
   override_pause_mode: false
 ```
-Every feeding also fires an `esphome.fish_feed` event with `device`,`amount`,`mode`,and `timestamp` data, which you can use in automations.
+Every feeding also fires an `esphome.fish_feed` event containing `device`,`amount`,`mode`,and `timestamp` data, which you can use in automations.
 
 ## Troubleshooting
-**Display background is white instead of black** - Add `invert_colors: true` to the `display:` section. Many generic ST7789V panels ship with inverted colors by default.
+**Display colors are inverted** - Some ST7789V panels require `invert_colors: false` instead of the default `true`. If the display colors appear inverted, try changing this setting.
