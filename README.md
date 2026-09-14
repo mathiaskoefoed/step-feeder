@@ -1,6 +1,8 @@
 # Step Feeder - ESP32 Aquarium Feeder
 An ESP32-based automatic aquarium feeder built around the auger screw and food container salvaged from a Juwel SmartFeed 2.0, running on [ESPHome](https://esphome.io/) with full Home Assistant Integration.
 
+<img src="/media/step_feeder_1.jpeg" width="300" height="400"><img src="/media/step_feeder_2.jpeg" width="300" height="400"><img src="/media/step_feeder_3.jpeg" width="300" height="400"><img src="/media/step_feeder_4.jpeg" width="300" height="400">
+
 ## Features
 
 - **Tested** - for 1 year before publishing this feeder
