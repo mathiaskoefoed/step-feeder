@@ -6,7 +6,11 @@ An ESP32-based automatic aquarium feeder built around the auger screw and food c
 ## Table of Contents
 - [Features](#features)
 - [Hardware](#hardware)
+- [Prerequisites](#prerequisites)
 - [Build steps](#build-steps)
+- [Calibration](#calibration)
+- [Home Assistant Integration](#home-assistant-integration)
+- [Troubleshooting](#troubleshooting)
 
 ## Features
 
@@ -31,9 +35,18 @@ An ESP32-based automatic aquarium feeder built around the auger screw and food c
 - 8 x jumper cable
 - 3D printed parts
 
+## Prerequisites
+- **ESPHome 2026.8.2 or newer** - the config uses `min_version: 2026.8.2`, so an older ESPHome install will refuse to compile it.
+- **A `secrets.yaml` file** alongside the config, containing your WiFi credentials:
+```yaml
+wifi_ssid: "your-wifi-name"
+wifi_password: "your-wifi-password"
+```
+- Multiple language variants of the config may exist (`step-feeder-(lang).yaml`). To create your own translation, copy the file and translate the `display_*` and entity-name substitutions at the top.
+
 ## Build steps
 
-1. **Flash the step-feeder-(lang).yaml file.** Key settings to adjust in subsititutions if needed:
+1. **Flash the step-feeder-(lang).yaml file.** Key settings to adjust in substitutions if needed:
 
 | Setting | Purpose | Default |
 |---|---|---|
@@ -77,3 +90,31 @@ An ESP32-based automatic aquarium feeder built around the auger screw and food c
 7. **Wire the ESP32** to the servo, display, and backlight per the pin table under [Build steps](#build-steps), using the color mapping from step 4. Twist (+, ground) with heat shrink like in picture to the servo cables.
 
 <img src="/media/esp32.jpeg" width="300" height="300">
+
+## Calibration
+The servo levels may need to be tuned after assembly but default should work:
+1. In Home Assistant, use the **Servo Control** number entity to manually jog the servo to find the current arm level where the auger turns exactly one dispensing cycle.
+2. Set **Normal Level** to the value that moves the arm one tooth
+3. Set **Extra Level** to the value that moves the arm two tooth
+4. Set **Stop Level** to the value that moves the arm to rest position
+
+## Home Assistant Integration
+### Actions:
+
+| Action | Purpose |
+|---|---|
+| `esphome.<name>_feed_now` | Trigger an immediate feeding. Parameters: `amount` (int), `mode` (`NORMAL` or `EXTRA`), `override_pause_mode` (bool - feed even if Pause mode is on) |
+| `esphome.<name>_reset_total_feed` | Reset the total feedings counter back to 0 |
+
+Example call:
+```yaml
+action: esphome.step_feeder_feed_now
+data:
+  amount: 10
+  mode: "NORMAL"
+  override_pause_mode: false
+```
+Every feeding also fires an `esphome.fish_feed` event with `device`,`amount`,`mode`,and `timestamp` data, which you can use in automations.
+
+## Troubleshooting
+**Display background is white instead of black** - Add `invert_colors: true` to the `display:` section. Many generic ST7789V panels ship with inverted colors by default.
