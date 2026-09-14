@@ -3,16 +3,20 @@ An ESP32-based automatic aquarium feeder built around the auger screw and food c
 
 <img src="/media/step_feeder_1.jpeg" width="300" height="400"><img src="/media/step_feeder_2.jpeg" width="300" height="400"><img src="/media/step_feeder_3.jpeg" width="300" height="400"><img src="/media/step_feeder_4.jpeg" width="300" height="400">
 
+## Table of Contents
+- [Features](#features)
+- [Hardware](#hardware)
+- [Build steps](#build-steps)
+
 ## Features
 
 - **Tested** - for 1 year before publishing this feeder
-
 - **Servo-driven auger** - reuses the SmartFeed 2.0's screw mechanism to dispense food in precise portions
 - **Onboard display** - ST7789V screen shows the current time, Wifi status/signal, and time for the next scheduled feeding
 - **5 independent feeding schedules** - each with its own time, amount, and mode
 - **Two feeding modes** - Normal and Extra, with separately tunable servo levels for each
 - **Pause mode** - temporarily disable all scheduled feedings without losing the schedule
-- **Auto-dim display** - brightness automatically adjusts between day and noght levels on a configurable schedule
+- **Auto-dim display** - brightness automatically adjusts between day and night levels on a configurable schedule
 - **Home Assistant integration** - feed on demand via the `feed_now` action, fires an `esphome.fish_feed` event on every feeding with amount/mode/timestamp
 - **Feeding history** - tracks total feedings and last/next feeding time, all exposed as Home Assistant entities
 
@@ -27,22 +31,30 @@ An ESP32-based automatic aquarium feeder built around the auger screw and food c
 - 8 x jumper cable
 - 3D printed parts
 
-
-## Configuration
-All device-specific settings (pins, timezone, display text, entity names) are defined as `substitutions` at the top of `step-feeder-(lang).yaml`, so the same base config can be reused across devices without touching the logic below.
-
-Key settings to adjust for your build:
-
-| Setting | Purpose |
-|---|---|
-| `servo_pin` | GPIO driving the servo |
-| `servo_min_level` / `servo_max_level` | Calibrate to your servo's usable range |
-| `initial_normal_level` / `initial_extra_level` / `initial_stop_level` | Starting position for each mode |
-| `display_*_pin` | SPI pins for the ST7789V display |
-| `timezone` | Used for scheduling and the on-screen clock |
-
 ## Build steps
-1. **Disassemble the Juwel SmartFeed 2.0** and set aside the parts shown below (all screws) - the food container, auger screw, and the 4 screws that originally secured the container to the housing.
+
+1. **Flash the step-feeder-(lang).yaml file.** Key settings to adjust in subsititutions if needed:
+
+| Setting | Purpose | Default |
+|---|---|---|
+| `name` | Internal device name (used in hostname etc.) | step-feeder |
+| `friendly_name` | Friendly name shown in Home Assistant | Step Feeder |
+| `timezone` | Your timezone (used for feeding schedule) | File specific |
+| `servo_pin` | GPIO driving the feeding servo | GPIO18 |
+| `servo_min_level` | Minimum PWM level for the servo | 2.5% |
+| `servo_max_level` | Maximum PWM level for the servo | 24.5% |
+| `initial_normal_level` | Default servo level for "normal" feed mode | 18 |
+| `initial_extra_level` | Default servo level for "extra" feed mode | 28 |
+| `initial_stop_level` | Servo level when stopped/idle | 5 |
+| `display_scl_pin` | Display SPI clock pin (SCL/CLK) | GPIO14 |
+| `display_sda_pin` | Display SPI data pin (SDA/MOSI) | GPIO23 |
+| `display_res_pin` | Display reset pin | GPIO4 |
+| `display_dc_pin` | Display data/command pin | GPIO26 |
+| `display_cs_pin` | Display chip-select pin | GPIO27 |
+| `display_blk_pin` | Display backlight pin | GPIO16 |
+
+
+2. **Disassemble the Juwel SmartFeed 2.0** and set aside the parts shown below (all screws) - the food container, auger screw, and the 4 screws that originally secured the container to the housing.
 
 <img src="/media/container.jpeg" width="300" height="200">
 
@@ -54,14 +66,14 @@ Key settings to adjust for your build:
 
 <img src="/media/servo_screws.jpeg" width="100" height="200"><img src="/media/servo_mount.jpeg" width="200" height="200">
 
-6. **Assemble the display**: mount the display to its 3D-printed base with 4 screws, connect the wiring, then feed the cable through the cable hole and attach the display cover. Note which jumper wire color corresponds to which pin - you'll need this when wiring up the ESP32.
+5. **Assemble the display**: mount the display to its 3D-printed base with 4 screws, connect the wiring, then feed the cable through the cable hole and attach the display cover. Note which jumper wire color corresponds to which pin - you'll need this when wiring up the ESP32.
 
 <img src="/media/display.jpeg" width="300" height="300">
 
-7. **Route cable** thru hole, and add a zip tie.
+6. **Route cable** thru hole, and add a zip tie.
 
 <img src="/media/power_cable.jpeg" width="300" height="300">
 
-8. **Wire the ESP32** to the servo, display, and backlight per the pin table under [Configuration](#configuration), using the color mapping from step 4. Twist (+, ground) with heat shrink like in picture to the servo cables.
+7. **Wire the ESP32** to the servo, display, and backlight per the pin table under [Build steps](#build-steps), using the color mapping from step 4. Twist (+, ground) with heat shrink like in picture to the servo cables.
 
 <img src="/media/esp32.jpeg" width="300" height="300">
