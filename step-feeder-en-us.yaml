@@ -1,0 +1,1409 @@
+################################
+#        CONFIGURATION         #
+################################
+
+substitutions:
+
+  ##############################
+  #           DEVICE           #
+  ##############################
+  name: step-feeder
+  friendly_name: Step Feeder
+  timezone: America/New_York
+
+
+  ##############################
+  #           SERVO            #
+  ##############################
+  servo_pin: GPIO18
+  servo_min_level: 2.5%
+  servo_max_level: 24.5%
+  initial_normal_level: 18
+  initial_extra_level: 28
+  initial_stop_level: 5
+
+
+  ##############################
+  #          DISPLAY           #
+  ##############################
+  display_scl_pin: GPIO14
+  display_sda_pin: GPIO23
+  display_res_pin: GPIO4
+  display_dc_pin: GPIO26
+  display_cs_pin: GPIO27
+  display_blk_pin: GPIO16
+
+
+  ##############################
+  #        DISPLAY TEXT        #
+  ##############################
+  display_sunday: "SUNDAY"
+  display_monday: "MONDAY"
+  display_tuesday: "TUESDAY"
+  display_wednesday: "WEDNESDAY"
+  display_thursday: "THURSDAY"
+  display_friday: "FRIDAY"
+  display_saturday: "SATURDAY"
+
+  display_ready: "READY"
+  display_pause: "PAUSE"
+  display_feeding: "FEEDING"
+  display_next_feeding: "NEXT FEEDING"
+  display_today: "TODAY"
+  display_tomorrow: "TOMORROW"
+  display_mode: "MODE"
+  display_amount: "Amount"
+  display_wifi: "WiFi"
+
+
+  ##############################
+  #        ENTITY NAMES        #
+  ##############################
+  feed_time_1: "Feeding Time 1"
+  feed_mode_1: "Feeding Mode 1"
+  feed_amount_1: "Feeding Amount 1"
+  feed_time_1_enabled: "Feeding Time 1 Active"
+
+  feed_time_2: "Feeding Time 2"
+  feed_mode_2: "Feeding Mode 2"
+  feed_amount_2: "Feeding Amount 2"
+  feed_time_2_enabled: "Feeding Time 2 Active"
+
+  feed_time_3: "Feeding Time 3"
+  feed_mode_3: "Feeding Mode 3"
+  feed_amount_3: "Feeding Amount 3"
+  feed_time_3_enabled: "Feeding Time 3 Active"
+
+  feed_time_4: "Feeding Time 4"
+  feed_mode_4: "Feeding Mode 4"
+  feed_amount_4: "Feeding Amount 4"
+  feed_time_4_enabled: "Feeding Time 4 Active"
+
+  feed_time_5: "Feeding Time 5"
+  feed_mode_5: "Feeding Mode 5"
+  feed_amount_5: "Feeding Amount 5"
+  feed_time_5_enabled: "Feeding Time 5 Active"
+
+  feed_sunday: "Feeding Sunday"
+  feed_monday: "Feeding Monday"
+  feed_tuesday: "Feeding Tuesday"
+  feed_wednesday: "Feeding Wednesday"
+  feed_thursday: "Feeding Thursday"
+  feed_friday: "Feeding Friday"
+  feed_saturday: "Feeding Saturday"
+
+  last_feed: "Last Feeding"
+  next_feed: "Next Feeding"
+
+  auto_dim: "Auto Dim Screen"
+  screen_brightness: "Screen Brightness"
+  day_brightness: "Day Brightness"
+  night_brightness: "Night Brightness"
+  night_start: "Night Start"
+  night_end: "Night End"
+
+  running: "Running"
+  total_feed: "Total Feedings"
+  wifi_signal: "WiFi Signal"
+  uptime: "Up Time"
+  restart: "Restart ESP"
+  reset: "Reset"
+
+  mode_normal: "NORMAL"
+  mode_extra: "EXTRA"
+  mode_pause: "Pause Feeding"
+
+  servo_control: "Servo Control"
+  normal_level: "Normal Level"
+  extra_level: "Extra Level"
+  stop_level: "Stop Level"
+
+################################
+#           ESPHOME            #
+################################
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  min_version: 2026.9.0
+  name_add_mac_suffix: false
+
+  on_boot:
+    priority: -100
+    then:
+      - lambda: 'id(feeding) = false;'
+
+      - lambda: 'id(total_feed).publish_state(id(total_feeds));'
+
+      - servo.write: 
+          id: my_servo
+          level: !lambda 'return id(stop_level).state / 100.0;'
+
+      - delay: 500ms
+      - servo.detach: my_servo
+      - script.execute: update_next_feed_time
+  on_shutdown: 
+    then:
+      - servo.detach: my_servo
+
+################################
+#            ESP32             #
+################################
+
+esp32:
+  variant: esp32
+
+  framework:
+    type: esp-idf
+
+    advanced: 
+      minimum_chip_revision: "3.1"
+      sram1_as_iram: true
+
+################################
+#            SYSTEM            #
+################################
+
+logger:
+  baud_rate: 0
+
+api:
+  reboot_timeout: 0s
+  listen_backlog: 1
+  max_connections: 2
+  max_send_queue: 4
+  batch_delay: 50ms
+  actions: 
+    - action: feed_now
+      variables:
+        amount: int
+        mode: string
+        override_pause_mode: bool
+
+      then:
+        - if:
+            condition:
+              lambda: 'return (!id(pause_mode).state || override_pause_mode) && !id(feeding);'
+            then:
+              - script.execute:
+                  id: feed_fish
+                  amount: !lambda 'return amount;'
+                  mode: !lambda 'return mode;'
+
+    - action: reset_total_feed
+      then:
+        - lambda: |-
+            id(total_feeds) = 0;
+            id(total_feed).publish_state(id(total_feeds));
+
+ota:
+- platform: esphome
+
+
+################################
+#             WIFI             #
+################################
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  reboot_timeout: 0s
+  power_save_mode: NONE
+  fast_connect: true
+  output_power: 18
+
+################################
+#             TIME             #
+################################
+
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: ${timezone}
+    update_interval: 60s
+    on_time_sync:
+      then:
+        - script.execute: update_next_feed_time
+    on_time: 
+      - seconds: 0
+        minutes: 0
+        hours: 0
+        then: 
+          - script.execute: update_next_feed_time
+      - seconds: 0
+        minutes: /1
+        then:
+          - lambda: |-
+              if (!id(auto_dim_enabled).state) return;
+              auto now = id(sntp_time).now();
+              if (!now.is_valid()) return;
+              if (!id(night_start).has_state()) return;
+              if (!id(night_end).has_state()) return;
+              int now_mins = now.hour * 60 + now.minute;
+              auto ns = id(night_start).state_as_esptime();
+              auto ne = id(night_end).state_as_esptime();
+              int start = ns.hour * 60 + ns.minute;
+              int end = ne.hour * 60 + ne.minute;
+              bool night = false;
+              if (start < end) {
+                night = (now_mins >= start && now_mins < end);
+              } else {
+                night = (now_mins >= start || now_mins < end);
+              }
+
+              auto call = id(display_backlight).turn_on();
+              call.set_brightness(
+              (night
+                ? id(night_brightness).state
+                : id(day_brightness).state
+              ) / 100.0
+              );
+              call.perform();
+
+
+datetime:
+  - platform: template
+    id: last_feed_datetime
+    name: ${last_feed}
+    type: DATETIME
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: night_start
+    name: ${night_start}
+    type: TIME
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: night_end
+    name: ${night_end}
+    type: TIME
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: next_feed_datetime
+    name: ${next_feed}
+    type: DATETIME
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: feed_time_1
+    name: ${feed_time_1}
+    type: TIME
+    optimistic: true
+    restore_value: true
+    set_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    on_time:
+      - if:
+          condition:
+            lambda: |-
+              auto now = id(sntp_time).now();
+              bool day_ok = false;
+              switch (now.day_of_week) {
+                case 1: day_ok = id(feed_day_sun).state; break;
+                case 2: day_ok = id(feed_day_mon).state; break;
+                case 3: day_ok = id(feed_day_tue).state; break;
+                case 4: day_ok = id(feed_day_wed).state; break;
+                case 5: day_ok = id(feed_day_thu).state; break;
+                case 6: day_ok = id(feed_day_fri).state; break;
+                case 7: day_ok = id(feed_day_sat).state; break;
+              }
+              return id(feed_time_1_enabled).state && day_ok && !id(pause_mode).state;
+          then:
+            - script.execute:
+                id: feed_fish
+                amount: !lambda 'return (int)id(feed_amount_1).state;'
+                mode: !lambda 'return id(feed_mode_1).current_option();'
+            - script.execute: update_next_feed_time
+  - platform: template
+    id: feed_time_2
+    name: ${feed_time_2}
+    type: TIME
+    optimistic: true
+    restore_value: true
+    set_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    on_time: 
+      - if:
+          condition:
+            lambda: |-
+              auto now = id(sntp_time).now();
+              bool day_ok = false;
+              switch (now.day_of_week) {
+                case 1: day_ok = id(feed_day_sun).state; break;
+                case 2: day_ok = id(feed_day_mon).state; break;
+                case 3: day_ok = id(feed_day_tue).state; break;
+                case 4: day_ok = id(feed_day_wed).state; break;
+                case 5: day_ok = id(feed_day_thu).state; break;
+                case 6: day_ok = id(feed_day_fri).state; break;
+                case 7: day_ok = id(feed_day_sat).state; break;
+              }
+              return id(feed_time_2_enabled).state && day_ok && !id(pause_mode).state;
+          then:
+            - script.execute:
+                id: feed_fish
+                amount: !lambda 'return (int)id(feed_amount_2).state;'
+                mode: !lambda 'return id(feed_mode_2).current_option();'
+            - script.execute: update_next_feed_time
+  - platform: template
+    id: feed_time_3
+    name: ${feed_time_3}
+    type: TIME
+    optimistic: true
+    restore_value: true
+    set_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    on_time: 
+      - if:
+          condition:
+            lambda: |-
+              auto now = id(sntp_time).now();
+              bool day_ok = false;
+              switch (now.day_of_week) {
+                case 1: day_ok = id(feed_day_sun).state; break;
+                case 2: day_ok = id(feed_day_mon).state; break;
+                case 3: day_ok = id(feed_day_tue).state; break;
+                case 4: day_ok = id(feed_day_wed).state; break;
+                case 5: day_ok = id(feed_day_thu).state; break;
+                case 6: day_ok = id(feed_day_fri).state; break;
+                case 7: day_ok = id(feed_day_sat).state; break;
+              }
+              return id(feed_time_3_enabled).state && day_ok && !id(pause_mode).state;
+          then:
+            - script.execute:
+                id: feed_fish
+                amount: !lambda 'return (int)id(feed_amount_3).state;'
+                mode: !lambda 'return id(feed_mode_3).current_option();'
+            - script.execute: update_next_feed_time
+  - platform: template
+    id: feed_time_4
+    name: ${feed_time_4}
+    type: TIME
+    optimistic: true
+    restore_value: true
+    set_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    on_time: 
+      - if:
+          condition:
+            lambda: |-
+              auto now = id(sntp_time).now();
+              bool day_ok = false;
+              switch (now.day_of_week) {
+                case 1: day_ok = id(feed_day_sun).state; break;
+                case 2: day_ok = id(feed_day_mon).state; break;
+                case 3: day_ok = id(feed_day_tue).state; break;
+                case 4: day_ok = id(feed_day_wed).state; break;
+                case 5: day_ok = id(feed_day_thu).state; break;
+                case 6: day_ok = id(feed_day_fri).state; break;
+                case 7: day_ok = id(feed_day_sat).state; break;
+              }
+              return id(feed_time_4_enabled).state && day_ok && !id(pause_mode).state;
+          then:
+            - script.execute:
+                id: feed_fish
+                amount: !lambda 'return (int)id(feed_amount_4).state;'
+                mode: !lambda 'return id(feed_mode_4).current_option();'
+            - script.execute: update_next_feed_time
+  - platform: template
+    id: feed_time_5
+    name: ${feed_time_5}
+    type: TIME
+    optimistic: true
+    restore_value: true
+    set_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    on_time: 
+      - if:
+          condition:
+            lambda: |-
+              auto now = id(sntp_time).now();
+              bool day_ok = false;
+              switch (now.day_of_week) {
+                case 1: day_ok = id(feed_day_sun).state; break;
+                case 2: day_ok = id(feed_day_mon).state; break;
+                case 3: day_ok = id(feed_day_tue).state; break;
+                case 4: day_ok = id(feed_day_wed).state; break;
+                case 5: day_ok = id(feed_day_thu).state; break;
+                case 6: day_ok = id(feed_day_fri).state; break;
+                case 7: day_ok = id(feed_day_sat).state; break;
+              }
+              return id(feed_time_5_enabled).state && day_ok && !id(pause_mode).state;
+          then:
+            - script.execute:
+                id: feed_fish
+                amount: !lambda 'return (int)id(feed_amount_5).state;'
+                mode: !lambda 'return id(feed_mode_5).current_option();'
+            - script.execute: update_next_feed_time
+
+
+################################
+#           GLOBALS            #
+################################
+
+globals:
+  - id: feeding
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+
+  - id: total_feeds
+    type: int
+    restore_value: true
+    initial_value: '0'
+
+  - id: next_feed_day
+    type: int
+    restore_value: true
+    initial_value: '-1'
+
+  - id: next_feed_amount
+    type: int
+    restore_value: true
+    initial_value: '0'
+
+  - id: next_feed_mode
+    type: std::string
+    restore_value: true
+    initial_value: '""'
+
+
+################################
+#            FONT              #
+################################
+
+font:
+  - file: "fonts/NotoSans-Bold.ttf"
+    id: font_small
+    size: 20
+    glyphs: " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzæøåÆØÅ:%.-/"
+  - file: "fonts/NotoSans-Regular.ttf"
+    id: font_medium
+    size: 28
+    glyphs: " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzæøåÆØÅ:%.-/"
+
+  - file: "fonts/NotoSans-Regular.ttf"
+    id: font_large
+    size: 42
+    glyphs: " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzæøåÆØÅ:%.-/"
+
+  - file: "fonts/NotoSans-Bold.ttf"
+    id: font_big
+    size: 52
+    glyphs: "0123456789:"
+
+################################
+#           DISPLAY            #
+################################
+
+spi:
+  clk_pin: ${display_scl_pin}
+  mosi_pin: ${display_sda_pin}
+
+display:
+  - platform: mipi_spi
+    model: "ST7789V"
+    cs_pin: ${display_cs_pin}
+    dc_pin: ${display_dc_pin}
+    reset_pin: ${display_res_pin}
+    dimensions:
+      width: 240
+      height: 280
+      offset_width: 0
+      offset_height: 20
+    update_interval: 1s
+    rotation: 0
+
+    color_depth: 16
+    invert_colors: true
+
+    lambda: |-
+
+      int rssi = id(wifi_rssi).has_state() ? id(wifi_rssi).state : -100;
+
+      it.print(
+        52, 0,
+        id(font_small),
+        Color(200, 200, 200),
+        TextAlign::TOP_CENTER,
+        "${display_wifi}"
+      );
+
+      it.printf(
+        120, 0,
+        id(font_small),
+        Color(200, 200, 200),
+        TextAlign::TOP_CENTER,
+        "%d dB",
+        rssi
+      );
+
+      int bars = 0;
+      if (rssi > -50) bars = 5;
+      else if (rssi > -60) bars = 4;
+      else if (rssi > -67) bars = 3;
+      else if (rssi > -75) bars = 2;
+      else if (rssi > -85) bars = 1;
+      else bars = 0;
+
+      int x = 175;
+      int y = 12;
+      int bar_w = 4;
+      int gap = 3;
+      it.filled_rectangle(
+        0, 24,
+        240, 1,
+        Color(80, 80, 80)
+      );
+      for (int i = 0; i < 5; i++) {
+        int h = 8 + i * 2;
+        Color col = (i < bars)
+          ? Color(255,255,255)
+          : Color(90, 90, 90);
+        
+        it.filled_rectangle(
+          x + i * (bar_w + gap),
+          y + (10 - h),
+          bar_w,
+          h,
+          col
+        );
+      }
+
+      auto now = id(sntp_time).now();
+
+      if (now.is_valid()) {
+        it.strftime(
+          120, 15,
+          id(font_big),
+          Color(0,200,255),
+          TextAlign::TOP_CENTER,
+          "%H:%M:%S",
+          now
+        );
+      }
+
+      it.print(
+        120, 70,
+        id(font_large),
+        Color(id(feeding) ? 255 : id(pause_mode).state ? 255 : 0,
+               id(feeding) ? 180 : id(pause_mode).state ? 100 : 255,
+               0),
+        TextAlign::TOP_CENTER,
+        id(feeding) ? "${display_feeding}" : id(pause_mode).state ? "${display_pause}" : "${display_ready}"
+      );
+
+      it.print(
+        120, 120,
+        id(font_medium),
+        Color(255, 220, 0),
+        TextAlign::TOP_CENTER,
+        "${display_next_feeding}"
+      );
+
+      if (id(next_feed_datetime).has_state() && id(next_feed_day) >= 0) {
+        auto now2 = id(sntp_time).now();
+        const char* day_names[] = {
+          "",
+          "${display_sunday}",
+          "${display_monday}",
+          "${display_tuesday}",
+          "${display_wednesday}",
+          "${display_thursday}",
+          "${display_friday}",
+          "${display_saturday}"
+          };
+        bool same_day = now2.is_valid() && (now2.day_of_week == id(next_feed_day));
+
+
+        auto t = id(next_feed_datetime).state_as_esptime();
+        if (same_day) {
+          it.print(
+            120, 150,
+            id(font_medium),
+            Color(255, 220, 0),
+            TextAlign::TOP_CENTER,
+            "${display_today}"
+          );
+          it.strftime(
+            120, 175,
+            id(font_large),
+            Color(255, 220, 0),
+            TextAlign::TOP_CENTER,
+            "%H:%M",
+            t
+          );
+        } else {
+          auto now3 = id(sntp_time).now();
+          int tomorrow_dow = (now3.day_of_week % 7) + 1;
+          bool is_tomorrow = now3.is_valid() && (id(next_feed_day) == tomorrow_dow);
+          it.print(
+            120, 150,
+            id(font_medium),
+            Color(255, 220, 0),
+            TextAlign::TOP_CENTER,
+            is_tomorrow ? "${display_tomorrow}" : day_names[id(next_feed_day)]
+          );
+          it.strftime(
+            120, 175,
+            id(font_large),
+            Color(255, 220, 0),
+            TextAlign::TOP_CENTER,
+            "%H:%M",
+            t
+          );
+        }
+        it.printf(
+          120, 220,
+          id(font_small),
+          Color(255, 220, 0),
+          TextAlign::TOP_CENTER,
+          "${display_amount}: %d",
+          id(next_feed_amount)
+        );
+        it.printf(
+          120, 250,
+          id(font_small),
+          Color(255, 220, 0),
+          TextAlign::TOP_CENTER,
+          "${display_mode}: %s",
+          id(next_feed_mode).c_str()
+        );
+      } else {
+        it.print(
+          120, 225,
+          id(font_large),
+          Color(255, 220, 0),
+          TextAlign::TOP_CENTER,
+          "--:--"
+        );
+      }
+
+################################
+#           OUTPUT             #
+################################
+
+output:
+  - platform: ledc
+    id: pwm_output
+    pin: ${servo_pin}
+    frequency: 50Hz
+    channel: 0
+  - platform: ledc
+    pin: ${display_blk_pin}
+    id: backlight_pwm
+    frequency: 1000Hz
+    channel: 8
+
+
+################################
+#             LIGHT            #
+################################
+
+light:
+  - platform: monochromatic
+    output: backlight_pwm
+    id: display_backlight
+    restore_mode: ALWAYS_ON
+    name: ${screen_brightness}
+    default_transition_length: 0s
+
+
+################################
+#            SERVO             #
+################################
+
+servo:
+  - id: my_servo
+    output: pwm_output
+
+    min_level: ${servo_min_level}
+    max_level: ${servo_max_level}
+
+
+################################
+#            SWITCH            #
+################################
+
+switch:
+  - platform: template
+    id: pause_mode
+    name: ${mode_pause}
+    icon: mdi:pause-circle-outline
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    turn_off_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: auto_dim_enabled
+    name: ${auto_dim}
+    icon: mdi:theme-light-dark
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
+    id: feed_time_1_enabled
+    name: ${feed_time_1_enabled}
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    turn_off_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_time_2_enabled
+    name: ${feed_time_2_enabled}
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    turn_off_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_time_3_enabled
+    name: ${feed_time_3_enabled}
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    turn_off_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_time_4_enabled
+    name: ${feed_time_4_enabled}
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    turn_off_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_time_5_enabled
+    name: ${feed_time_5_enabled}
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    turn_off_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_day_sun
+    name: ${feed_sunday}
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_on_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    turn_off_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_day_mon
+    name: ${feed_monday}
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_on_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    turn_off_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_day_tue
+    name: ${feed_tuesday}
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_on_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    turn_off_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_day_wed
+    name: ${feed_wednesday}
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_on_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    turn_off_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_day_thu
+    name: ${feed_thursday}
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_on_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    turn_off_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_day_fri
+    name: ${feed_friday}
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_on_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    turn_off_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_day_sat
+    name: ${feed_saturday}
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_on_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+    turn_off_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+
+################################
+#        BINARY SENSOR         #
+################################
+
+binary_sensor:
+  - platform: template
+    id: feed_running
+    name: ${running}
+    icon: mdi:robot-industrial
+
+    lambda: |-
+      return id(feeding);
+
+
+################################
+#            SENSOR            #
+################################
+
+sensor:
+  - platform: template
+    id: total_feed
+    name: ${total_feed}
+    accuracy_decimals: 0
+    state_class: total_increasing
+    icon: mdi:counter
+
+    lambda: |-
+      return id(total_feeds);
+
+    update_interval: never
+
+  - platform: wifi_signal
+    id: wifi_rssi
+    name: ${wifi_signal}
+    icon: mdi:wifi
+    entity_category: diagnostic
+    update_interval: 60s
+
+  - platform: uptime
+    name: ${uptime}
+    type: seconds
+    unit_of_measurement: "min"
+    icon: mdi:timer-outline
+
+    update_interval: 60s
+
+
+
+################################
+#            SELECT            #
+################################
+
+select:
+  - platform: template
+    id: feed_mode_1
+    name: ${feed_mode_1}
+    icon: mdi:tune-variant
+    optimistic: true
+    restore_value: true
+    options:
+      - ${mode_normal}
+      - ${mode_extra}
+    initial_option: ${mode_normal}
+    set_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_mode_2
+    name: ${feed_mode_2}
+    icon: mdi:tune-variant
+    optimistic: true
+    restore_value: true
+    options:
+      - ${mode_normal}
+      - ${mode_extra}
+    initial_option: ${mode_normal}
+    set_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_mode_3
+    name: ${feed_mode_3}
+    icon: mdi:tune-variant
+    optimistic: true
+    restore_value: true
+    options:
+      - ${mode_normal}
+      - ${mode_extra}
+    initial_option: ${mode_normal}
+    set_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_mode_4
+    name: ${feed_mode_4}
+    icon: mdi:tune-variant
+    optimistic: true
+    restore_value: true
+    options:
+      - ${mode_normal}
+      - ${mode_extra}
+    initial_option: ${mode_normal}
+    set_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_mode_5
+    name: ${feed_mode_5}
+    icon: mdi:tune-variant
+    optimistic: true
+    restore_value: true
+    options:
+      - ${mode_normal}
+      - ${mode_extra}
+    initial_option: ${mode_normal}
+    set_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+################################
+#            NUMBER            #
+################################
+
+number:
+  - platform: template
+    id: day_brightness
+    name: ${day_brightness}
+    icon: mdi:brightness-7
+    min_value: 1
+    max_value: 100
+    initial_value: 100
+    step: 1
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: night_brightness
+    name: ${night_brightness}
+    icon: mdi:brightness-4
+    min_value: 1
+    max_value: 100
+    initial_value: 25
+    step: 1
+    optimistic: true
+    restore_value: true
+  - platform: template
+    name: ${servo_control}
+    icon: mdi:rotate-right
+
+    min_value: -100
+    max_value: 100
+
+    initial_value: 0
+    step: 1
+
+    optimistic: true
+    restore_value: false
+
+    set_action:
+      then:
+        - if:
+            condition:
+              lambda: 'return !id(feeding);'
+            then:
+              - servo.write:
+                  id: my_servo
+                  level: !lambda 'return x / 100.0;'
+              - delay: 2s
+              - servo.detach: my_servo
+
+  - platform: template
+    id: normal_level
+    name: ${normal_level}
+
+    icon: mdi:speedometer-medium
+
+    min_value: -100
+    max_value: 100
+
+    initial_value: ${initial_normal_level}
+    step: 1
+
+    optimistic: true
+    restore_value: true
+
+  - platform: template
+    id: extra_level
+    name: ${extra_level}
+
+    icon: mdi:speedometer
+
+    min_value: -100
+    max_value: 100
+
+    initial_value: ${initial_extra_level}
+    step: 1
+
+    optimistic: true
+    restore_value: true
+
+  - platform: template
+    id: stop_level
+    name: ${stop_level}
+    icon: mdi:stop-circle-outline
+
+    min_value: -100
+    max_value: 100
+
+    initial_value: ${initial_stop_level}
+    step: 1
+
+    optimistic: true
+    restore_value: true
+
+  - platform: template
+    id: feed_amount_1
+    name: ${feed_amount_1}
+    icon: mdi:food
+    min_value: 1
+    max_value: 200
+    initial_value: 10
+    step: 1
+    optimistic: true
+    restore_value: true
+    set_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_amount_2
+    name: ${feed_amount_2}
+    icon: mdi:food
+    min_value: 1
+    max_value: 200
+    initial_value: 10
+    step: 1
+    optimistic: true
+    restore_value: true
+    set_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_amount_3
+    name: ${feed_amount_3}
+    icon: mdi:food
+    min_value: 1
+    max_value: 200
+    initial_value: 10
+    step: 1
+    optimistic: true
+    restore_value: true
+    set_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_amount_4
+    name: ${feed_amount_4}
+    icon: mdi:food
+    min_value: 1
+    max_value: 200
+    initial_value: 10
+    step: 1
+    optimistic: true
+    restore_value: true
+    set_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+  - platform: template
+    id: feed_amount_5
+    name: ${feed_amount_5}
+    icon: mdi:food
+    min_value: 1
+    max_value: 200
+    initial_value: 10
+    step: 1
+    optimistic: true
+    restore_value: true
+    set_action: 
+      then:
+        - delay: 100ms
+        - script.execute: update_next_feed_time
+
+################################
+#            SCRIPT            #
+################################
+
+script:
+  - id: feed_fish
+
+    mode: single
+
+    parameters: 
+      amount: int
+      mode: std::string
+
+    then:
+      - lambda: 'id(feeding) = true;'
+
+      - repeat:
+          count: !lambda 'return amount;'
+
+          then:
+            - servo.write:
+                id: my_servo
+                level: !lambda |-
+                  return(
+                    mode == "${mode_normal}" ? id(normal_level).state :
+                    mode == "${mode_extra}" ? id(extra_level).state :
+                    id(stop_level).state
+                  ) / 100.0;
+
+            - delay: 650ms
+
+            - servo.write: 
+                id: my_servo
+                level: !lambda 'return id(stop_level).state / 100.0;'
+
+            - delay: 650ms
+
+      - delay: 650ms
+
+      - servo.detach: my_servo
+
+      - lambda: 'id(feeding) = false;'
+
+      - homeassistant.event: 
+          event: esphome.fish_feed
+          data:
+            device: ${friendly_name}
+            amount: !lambda 'return std::to_string(amount);'
+            mode: !lambda 'return mode;'
+            timestamp: !lambda |-
+              auto t = id(sntp_time).now();
+              char buf[20];
+              snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d",
+              t.year, t.month, t.day_of_month,
+              t.hour, t.minute, t.second);
+              return std::string(buf);
+
+      - lambda: |-
+          id(total_feeds)++;
+          id(total_feed).publish_state(id(total_feeds));
+          auto t = id(sntp_time).now();
+          if (t.is_valid()) {
+            auto call = id(last_feed_datetime).make_call();
+            call.set_datetime(
+              t.year,
+              t.month,
+              t.day_of_month,
+              t.hour,
+              t.minute,
+              t.second
+            );
+            call.perform();
+          }
+
+  - id: update_next_feed_time
+    mode: restart
+    then: 
+      - lambda: |-
+          auto now = id(sntp_time).now();
+          if (!now.is_valid()) return;
+
+          int now_mins = now.hour * 60 + now.minute;
+
+          bool day_ok[8] = {
+            false,
+            id(feed_day_sun).state,
+            id(feed_day_mon).state,
+            id(feed_day_tue).state,
+            id(feed_day_wed).state,
+            id(feed_day_thu).state,
+            id(feed_day_fri).state,
+            id(feed_day_sat).state,
+          };
+
+          struct Entry {
+            esphome::datetime::TimeEntity* e;
+            esphome::switch_::Switch* sw;
+            esphome::number::Number* amount;
+            esphome::select::Select* mode;
+          };
+
+          Entry times[] = {
+            {id(feed_time_1), id(feed_time_1_enabled), id(feed_amount_1), id(feed_mode_1)},
+            {id(feed_time_2), id(feed_time_2_enabled), id(feed_amount_2), id(feed_mode_2)},
+            {id(feed_time_3), id(feed_time_3_enabled), id(feed_amount_3), id(feed_mode_3)},
+            {id(feed_time_4), id(feed_time_4_enabled), id(feed_amount_4), id(feed_mode_4)},
+            {id(feed_time_5), id(feed_time_5_enabled), id(feed_amount_5), id(feed_mode_5)},
+          };
+
+          int best_mins = -1;
+          int best_diff = 99999;
+          int best_day = -1;
+          int best_idx = -1;
+          for (int day_offset = 0; day_offset < 7; day_offset++) {
+            int dow = (now.day_of_week - 1 + day_offset) % 7 + 1;
+            if (!day_ok[dow]) continue;
+
+            for (int i = 0; i < 5; i++) {
+              auto& t = times[i];
+              if (!t.e->has_state() || !t.sw->state) continue;
+              auto et = t.e->state_as_esptime();
+              int mins = day_offset * 1440 + et.hour * 60 + et.minute;
+              int diff = mins - now_mins;
+              if (diff <= 0) continue;
+              if (diff < best_diff) {
+                best_diff = diff;
+                best_mins = et.hour * 60 + et.minute;
+                best_day = dow;
+                best_idx = i;
+              }
+            }
+            if (best_mins >= 0) break;
+          }
+
+          if (best_mins >= 0) {
+            id(next_feed_day) = best_day;
+            id(next_feed_amount) = (int)times[best_idx].amount->state;
+            id(next_feed_mode) = times[best_idx].mode->current_option();
+
+            int target_dow = best_day;
+            int days_ahead = (target_dow - now.day_of_week + 7) % 7;
+            if (days_ahead == 0 && best_mins <= now.hour * 60 + now.minute) days_ahead = 7;
+
+            struct tm t = {};
+            t.tm_year = now.year - 1900;
+            t.tm_mon = now.month - 1;
+            t.tm_mday = now.day_of_month + days_ahead;
+            t.tm_hour = best_mins / 60;
+            t.tm_min = best_mins % 60;
+            t.tm_sec = 0;
+            t.tm_isdst = -1;
+            mktime(&t);
+
+            auto call = id(next_feed_datetime).make_call();
+            call.set_datetime(
+              t.tm_year + 1900,
+              t.tm_mon + 1,
+              t.tm_mday,
+              t.tm_hour,
+              t.tm_min,
+              0
+            );
+            call.perform();
+          } else {
+            id(next_feed_day) = -1;
+            id(next_feed_amount) = 0;
+            id(next_feed_mode) = "";
+          }
+
+
+################################
+#            BUTTON            #
+################################
+
+button:
+  - platform: restart
+    name: ${restart}
+
+    icon: mdi:restart
+  - platform: factory_reset
+    name: ${reset}
