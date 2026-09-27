@@ -1,8 +1,8 @@
 # Step Feeder - ESP32 Aquarium Feeder
 An ESP32-based automatic aquarium feeder built around the auger screw and food container salvaged from a Juwel SmartFeed 2.0, running on [ESPHome](https://esphome.io/) with full Home Assistant Integration.
 
-<img src="/media/step_feeder_1.jpeg" width="300" height="400"><img src="/media/step_feeder_2.jpeg" width="300" height="400"><img src="/media/step_feeder_3.jpeg" width="300" height="400"><img src="/media/step_feeder_4.jpeg" width="300" height="400">
-<img src="/media/step_feeder.gif" width="250" height="400">
+<img src="./media/step_feeder_1.jpeg" width="300" height="400"><img src="./media/step_feeder_2.jpeg" width="300" height="400"><img src="./media/step_feeder_3.jpeg" width="300" height="400"><img src="./media/step_feeder_4.jpeg" width="300" height="400">
+<img src="./media/step_feeder.gif" width="250" height="400">
 ## Table of Contents
 - [Features](#features)
 - [Add-ons](#add-ons)
@@ -29,7 +29,7 @@ An ESP32-based automatic aquarium feeder built around the auger screw and food c
 ### Funnel
 An optional 3D-printed funnel that mounts below the auger outlet to guide the dispensed food directly into the tank opening, reducing spill and keeping food from scattering across the lid.
 
-<img src="/media/step_feeder_funnel.jpeg" width="250" height="400"><img src="/media/step_feeder_funnel_part.jpeg" width="250" height="400">
+<img src="./media/step_feeder_funnel.jpeg" width="250" height="400"><img src="./media/step_feeder_funnel_part.jpeg" width="250" height="400">
 
 ## Hardware
 
@@ -76,41 +76,41 @@ wifi_password: "your-wifi-password"
 
 2. **Disassemble the Juwel SmartFeed 2.0** and set aside the parts shown below (all screws) - the food container, auger screw, and the 4 screws that originally secured the container to the housing.
 
-<img src="/media/container.jpeg" width="300" height="200">
+<img src="./media/container.jpeg" width="300" height="200">
 
 3. **Mount the food container** to the 3D-printed base using the original 4 screws. The 3D-printed auger screw gear must be inserted into the container **before** the container is screwed down - it can't be added afterward.
 
-<img src="/media/container_screw.jpeg" width="300" height="200"><img src="/media/container_mount_1.jpeg" width="200" height="200"><img src="/media/container_mount_2.jpeg" width="200" height="200">
+<img src="./media/container_screw.jpeg" width="300" height="200"><img src="./media/container_mount_1.jpeg" width="200" height="200"><img src="./media/container_mount_2.jpeg" width="200" height="200">
 
 4. **Mount the MG90S servo** using its supplied screws, and route the servo cable through to the compartment where the ESP32 will sit.
 
-<img src="/media/servo_screws.jpeg" width="100" height="200"><img src="/media/servo_mount.jpeg" width="200" height="200">
+<img src="./media/servo_screws.jpeg" width="100" height="200"><img src="./media/servo_mount.jpeg" width="200" height="200">
 
 5. **Assemble the display**: mount the display to its 3D-printed base with 4 screws, connect the wiring, then feed the cable through the cable hole and attach the display cover. Note which jumper wire color corresponds to which pin - you'll need this when wiring up the ESP32.
 
-<img src="/media/display.jpeg" width="300" height="300">
+<img src="./media/display.jpeg" width="300" height="300">
 
 6. **Route the power cable through the hole and secure it with a zip tie.** 
 
-<img src="/media/power_cable.jpeg" width="300" height="300">
+<img src="./media/power_cable.jpeg" width="300" height="300">
 
 7. **Wire the ESP32** to the servo, display, and backlight according to the pin table above, using the jumper-wire color mapping from step 5. Twist the positive and ground wires together and secure them with heat shrink, as shown in the picture.
 
-<img src="/media/esp32.jpeg" width="300" height="300">
+<img src="./media/esp32.jpeg" width="300" height="300">
 
 8. Drill an hole thru the original servo arm like this:
 
-<img src="/media/servo_arm.jpeg" width="300" height="300">
+<img src="./media/servo_arm.jpeg" width="300" height="300">
 
 9. **Connect ESP32 to Home Assistant** and run 1 feed using the `feed_now` call
 
 10. **Mount the servo arm** at this precies angle like in picture.
 
-<img src="/media/arm.jpeg" width="300" height="300">
+<img src="./media/arm.jpeg" width="300" height="300">
 
 11. **Mount the arm with 1 screw.**
 
-<img src="/media/3d_arm.jpg" width="300" height="300"><img src="/media/3d_arm_mounted.jpg" width="300" height="300">
+<img src="./media/3d_arm.jpg" width="300" height="300"><img src="./media/3d_arm_mounted.jpg" width="300" height="300">
 
 ## Calibration
 The servo levels may need to be tuned after assembly but the default values should work.
