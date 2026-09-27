@@ -5,6 +5,7 @@ An ESP32-based automatic aquarium feeder built around the auger screw and food c
 <img src="/media/step_feeder.gif" width="250" height="400">
 ## Table of Contents
 - [Features](#features)
+- [Add-ons](#add-ons)
 - [Hardware](#hardware)
 - [Prerequisites](#prerequisites)
 - [Build steps](#build-steps)
@@ -24,6 +25,12 @@ An ESP32-based automatic aquarium feeder built around the auger screw and food c
 - **Home Assistant integration** - feed on demand via the `feed_now` action, fires an `esphome.fish_feed` event on every feeding with device/amount/mode/timestamp
 - **Feeding history** - tracks total feedings and last/next feeding time, all exposed as Home Assistant entities
 
+## Add-ons
+### Funnel
+An optional 3D-printed funnel that mounts below the auger outlet to guide the dispensed food directly into the tank opening, reducing spill and keeping food from scattering across the lid.
+
+<img src="/media/step_feeder_funnel.jpeg" width="250" height="400"><img src="/media/step_feeder_funnel_part.jpeg" width="250" height="400">
+
 ## Hardware
 
 - 1 x ESP32S (esp-idf framework) Max size: `26.50 x 52.00mm`
@@ -36,7 +43,7 @@ An ESP32-based automatic aquarium feeder built around the auger screw and food c
 - [3D Printed Parts](#3d-printed-parts)
 
 ## Prerequisites
-- **ESPHome 2026.8.2 or newer** - the config uses `min_version: 2026.8.2`, so an older ESPHome install will refuse to compile it.
+- **ESPHome 2026.9.0 or newer** - the config uses `min_version: 2026.9.0`, so an older ESPHome install will refuse to compile it.
 - **A `secrets.yaml` file** alongside the config, containing your WiFi credentials:
 ```yaml
 wifi_ssid: "your-wifi-name"
